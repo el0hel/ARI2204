@@ -105,7 +105,7 @@ class BlackjackEnv:
             elif player_total > dealer_total:
                 return self.get_state(), 1, True  # player wins
             elif player_total < dealer_total:
-                return self.get_state(), 0, True  # player loses
+                return self.get_state(), -1, True  # player loses
             else:
                 return self.get_state(), 0, True  # a draw occurs
         else:
