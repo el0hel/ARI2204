@@ -64,7 +64,8 @@ def execute_sarsa(configuration, episode_fn, num_episodes=100_000, evaluation_ep
 def main():
     configurations = {
         "constant ε=0.1": lambda k: 0.1,
-        "ε = 1/√k":      lambda k: 1.0 / math.sqrt(k), # Assuming that 1/k' means 1/(square root(k))
+        # "ε = 1/√k":      lambda k: 1.0 / math.sqrt(k), # Assuming that 1/k' means 1/(square root(k))
+        "ε = 1/k": lambda k: 1.0 / k,
         "ε = exp(-k/1000)":  lambda k: math.exp(-k/1000),
         "ε = exp(-k/10000)": lambda k: math.exp(-k/10000),
     }
