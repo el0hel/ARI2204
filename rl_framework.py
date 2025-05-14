@@ -207,3 +207,72 @@ class MonteCarloAgent(BaseAgent):
             # Monte Carlo update rule
             self.Q[(state, action)] = q_current + alpha * (G_t - q_current)
 
+class QLearningAgent(BaseAgent):
+    def __init__(self, num_of_actions=2, gamma=1.0):
+        super().__init__(num_of_actions, gamma)
+
+    def update(self, trajectory):
+        for state, action, reward, next_state, _ in trajectory:
+            # incrementing visit count  for (s, a)
+            self.N[(state, action)] += 1
+
+            # Computing step size as given
+            alpha = 1 / (self.N[(state, action)] + 1)
+
+            # get the maximum Q-value of the best possible actions in the next state
+            max_q_next = max(self.Q[(next_state, a)] for a in range(self.num_of_actions))
+
+            # Bellman optimality equation
+            td_target = reward + self.gamma * max_q_next 
+
+            # getting the difference between the target q and the current value of q 
+            td_error = td_target - self.Q[(state, action)]
+
+            # updating current q value using the weights calculated
+            self.Q[(state, action)] += alpha * td_error
+
+
+class DoubleQLearningAgent(BaseAgent):
+    def __init__(self, num_of_actions=2, gamma=1.0):
+        super().__init__(num_of_actions, gamma)
+        # the two state-action value functions
+        self.Q1 = defaultdict(float)
+        self.Q2 = defaultdict(float)
+
+    def update(self, trajectory):
+        for state, action, reward, next_state, _ in trajectory:
+            # update the count for (state, action)
+            self.N[(state, action)] += 1
+            alpha = 1 / (self.N[(state, action)] + 1) # step size = 1 / (N(s, a) + 1)
+
+            # Randomly decide whether to update Q1 or Q2
+            if random.random() < 0.5:
+                # same steps as the Q-Learning agent
+                max_a = max(range(self.num_of_actions), key=lambda a: self.Q1[(next_state, a)])
+                q_next = self.Q2[(next_state, max_a)]
+                td_target = reward + self.gamma * q_next
+                td_error = td_target - self.Q1[(state, action)]
+                self.Q1[(state, action)] += alpha * td_error
+            else:
+                # same steps as the Q-Learning agent
+                max_a = max(range(self.num_of_actions), key=lambda a: self.Q2[(next_state, a)])
+                q_next = self.Q1[(next_state, max_a)]
+                td_target = reward + self.gamma * q_next
+                td_error = td_target - self.Q2[(state, action)]
+                self.Q2[(state, action)] += alpha * td_error
+
+    def select_action(self, state, epsilon):
+        player_sum, _, _ = state
+        if player_sum < 12:
+            return 0  # HIT
+        if player_sum == 21:
+            return 1  # STAND
+
+        if random.random() < epsilon:
+            return random.randint(0, self.num_of_actions - 1)
+        else:
+            # Use average Q-value for decision
+            q_vals = [self.Q1[(state, a)] + self.Q2[(state, a)] for a in range(self.num_of_actions)]
+            max_q = max(q_vals)
+            best_actions = [a for a, q in enumerate(q_vals) if q == max_q]
+            return random.choice(best_actions)
