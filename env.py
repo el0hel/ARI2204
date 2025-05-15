@@ -27,6 +27,8 @@ usage example can be seen in test_blackjack.py
 
 import random
 
+random.seed(0)
+
 
 class BlackjackEnv:
     def __init__(self):
