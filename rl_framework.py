@@ -2,6 +2,7 @@ from env import BlackjackEnv
 import random
 from collections import defaultdict
 import math
+
 random.seed(0)
 """
     Shared RL framework base class for Monte Carlo, SARSA, Q-Learning
@@ -12,6 +13,7 @@ random.seed(0)
 
     Subclasses must implement `update(trajectory)` to apply their specific learning rule.
     """
+
 
 class BaseAgent:
     def __init__(self, num_of_actions=2, gamma=1.0):
@@ -142,7 +144,6 @@ class MonteCarloAgent(BaseAgent):
             best_actions = [a for a, q in enumerate(q_values) if q == max_q]
             return random.choice(best_actions)
 
-
     # executing one episode
     def episode_execution(self, env: BlackjackEnv, epsilon=None, first_exploration=False):
         # resetting environment
@@ -152,7 +153,6 @@ class MonteCarloAgent(BaseAgent):
 
         # getting epsilon for the current episode
         epsilon = self.get_epsilon()
-
 
         # only using epsilon-greedy in [12 ... 20], and using purely greedy (ε = 0) elsewhere
         # handling the first action of the episode for Exploring Starts
@@ -207,6 +207,7 @@ class MonteCarloAgent(BaseAgent):
             # Monte Carlo update rule
             self.Q[(state, action)] = q_current + alpha * (G_t - q_current)
 
+
 class QLearningAgent(BaseAgent):
     def __init__(self, num_of_actions=2, gamma=1.0):
         super().__init__(num_of_actions, gamma)
@@ -223,7 +224,7 @@ class QLearningAgent(BaseAgent):
             max_q_next = max(self.Q[(next_state, a)] for a in range(self.num_of_actions))
 
             # Bellman optimality equation
-            td_target = reward + self.gamma * max_q_next 
+            td_target = reward + self.gamma * max_q_next
 
             # getting the difference between the target q and the current value of q 
             td_error = td_target - self.Q[(state, action)]
@@ -243,7 +244,7 @@ class DoubleQLearningAgent(BaseAgent):
         for state, action, reward, next_state, _ in trajectory:
             # update the count for (state, action)
             self.N[(state, action)] += 1
-            alpha = 1 / (self.N[(state, action)] + 1) # step size = 1 / (N(s, a) + 1)
+            alpha = 1 / (self.N[(state, action)] + 1)  # step size = 1 / (N(s, a) + 1)
 
             # Randomly decide whether to update Q1 or Q2
             if random.random() < 0.5:
