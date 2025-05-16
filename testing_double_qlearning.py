@@ -1,12 +1,27 @@
 import matplotlib.pyplot as plt
 from rl_framework import DoubleQLearningAgent
-from env import BlackjackEnv
+import pandas as pd
 import math
 import random
 
 random.seed(0)
 
+# Strategy table builder for Double Q-Learning
+def build_strategy_table(q_values, use_ace=True):
+    table = []
+    for player_sum in range(20, 11, -1):
+        row = []
+        for dealer_card in range(2, 12):
+            state = (player_sum, dealer_card, use_ace)
+            hit_value = q_values.get((state, 0), float('-inf'))
+            stand_value = q_values.get((state, 1), float('-inf'))
+            best_action = 'H' if hit_value > stand_value else 'S'
+            row.append(best_action)
+        table.append(row)
+    return pd.DataFrame(table, index=range(20, 11, -1), columns=range(2, 12))
+
 def execute_double_qlearning(agent, epsilon_schedule, num_episodes=100000):
+    from env import BlackjackEnv
     env = BlackjackEnv()
     win_counts = []
     loss_counts = []
@@ -17,7 +32,6 @@ def execute_double_qlearning(agent, epsilon_schedule, num_episodes=100000):
         epsilon = epsilon_schedule(episode)
         trajectory = agent.episode_execution(env, epsilon, first_exploration=False)
 
-        # reward at the end of the episode
         final_reward = trajectory[-1][2]
 
         if final_reward == 1:
@@ -29,17 +43,22 @@ def execute_double_qlearning(agent, epsilon_schedule, num_episodes=100000):
 
         agent.update(trajectory)
 
-        # every 1000 eppisodes, log the counters and restart them
         if episode % 1000 == 0:
             win_counts.append(outcome_counter['win'])
             loss_counts.append(outcome_counter['loss'])
             draw_counts.append(outcome_counter['draw'])
             outcome_counter = {'win': 0, 'loss': 0, 'draw': 0}
 
-    # final Q-value is the Mean of Q1 and Q2
-    q_values = {key: (agent.Q1[key] + agent.Q2[key]) / 2 for key in set(agent.Q1) | set(agent.Q2)} # estimated Q-values
-    unique_pairs = set(q_values.keys()) # unique (state, action) pairs
-    pair_selection_counts = dict(agent.N) # selection counts
+    # Compute final Q-values and dealer advantage
+    q_values = {key: (agent.Q1[key] + agent.Q2[key]) / 2 for key in set(agent.Q1) | set(agent.Q2)}
+    unique_pairs = set(q_values.keys())
+    pair_selection_counts = dict(agent.N)
+    final_10k_wins = sum(win_counts[-10:])
+    final_10k_losses = sum(loss_counts[-10:])
+    dealer_advantage = (
+        (final_10k_losses - final_10k_wins) / (final_10k_losses + final_10k_wins)
+        if (final_10k_losses + final_10k_wins) != 0 else 0
+    )
 
     return {
         'wins': win_counts,
@@ -47,7 +66,8 @@ def execute_double_qlearning(agent, epsilon_schedule, num_episodes=100000):
         'draws': draw_counts,
         'unique_pairs': unique_pairs,
         'pair_counts': pair_selection_counts,
-        'q_values': q_values
+        'q_values': q_values,
+        'dealer_advantage': dealer_advantage
     }
 
 
@@ -66,6 +86,47 @@ def plot_episode_outcomes(results):
         plt.tight_layout()
         plt.show()
 
+def plot_eval_metrics_and_strategy(results):
+    configs = list(results.keys())
+    unique_counts = [len(results[c]['unique_pairs']) for c in configs]
+    plt.figure(figsize=(10, 5))
+    plt.bar(configs, unique_counts)
+    plt.xticks(rotation=45, ha='right')
+    plt.ylabel("Unique (s,a) Pairs")
+    plt.title("Unique State-Action Pairs per Configuration")
+    plt.tight_layout()
+    plt.show()
+
+    for config, data in results.items():
+        top_items = sorted(data['pair_counts'].items(), key=lambda x: x[1], reverse=True)[:10]
+        labels = [str(k) for k, _ in top_items]
+        values = [v for _, v in top_items]
+        plt.figure(figsize=(10, 5))
+        plt.bar(labels, values)
+        plt.xticks(rotation=90)
+        plt.ylabel("Frequency")
+        plt.title(f"Top 10 Most Frequent (s,a) Selections - {config}")
+        plt.tight_layout()
+        plt.show()
+
+    advantages = [results[c]['dealer_advantage'] for c in configs]
+    best_index = advantages.index(min(advantages))
+    bar_colors = ['orange' if i != best_index else 'green' for i in range(len(configs))]
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(configs, advantages, color=bar_colors)
+    plt.xticks(rotation=45, ha='right')
+    plt.ylabel("Dealer Advantage")
+    plt.title("Dealer Advantage per Configuration (Lowest = Best)")
+    plt.tight_layout()
+    plt.show()
+
+    for config, data in results.items():
+        q_values = data['q_values']
+        print(f"\nStrategy Table for {config} (Usable Ace = True):")
+        print(build_strategy_table(q_values, use_ace=True).to_string())
+        print(f"\nStrategy Table for {config} (Usable Ace = False):")
+        print(build_strategy_table(q_values, use_ace=False).to_string())
 
 # Run configurations
 epsilon_schedules = {
@@ -83,3 +144,4 @@ for name, eps_fn in epsilon_schedules.items():
     results[name] = execute_double_qlearning(agent, eps_fn)
 
 plot_episode_outcomes(results)
+plot_eval_metrics_and_strategy(results)
