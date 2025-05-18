@@ -86,7 +86,6 @@ def plot_episode_outcomes(results):
         plt.tight_layout()
         plt.show()
 
-# Updated plotting function to also generate strategy tables
 def plot_eval_metrics_and_strategy(results):
     # Plot unique (s,a) pairs per config
     configs = list(results.keys())
@@ -99,16 +98,20 @@ def plot_eval_metrics_and_strategy(results):
     plt.tight_layout()
     plt.show()
 
-    # Plot top-10 most frequent state-action pairs for each config
+    # Enhanced: Plot top 50 state-action visits in full-width chart
     for config, data in results.items():
-        top_items = sorted(data['pair_counts'].items(), key=lambda x: x[1], reverse=True)[:10]
-        labels = [str(k) for k, _ in top_items]
+        top_items = sorted(data['pair_counts'].items(), key=lambda x: x[1], reverse=True)[:50]
+        labels = [
+            f"{'Hit' if k[1]==0 else 'Stand'} {k[0][0]},{k[0][1]},{'YES' if k[0][2] else 'NO'}"
+            for k, _ in top_items
+        ]
         values = [v for _, v in top_items]
-        plt.figure(figsize=(10, 5))
+
+        plt.figure(figsize=(16, 5))
         plt.bar(labels, values)
         plt.xticks(rotation=90)
-        plt.ylabel("Frequency")
-        plt.title(f"Top 10 Most Frequent (s,a) Selections - {config}")
+        plt.ylabel("Visit Count")
+        plt.title(f"Top 50 State-Action Visits: {config}")
         plt.tight_layout()
         plt.show()
 
@@ -126,6 +129,19 @@ def plot_eval_metrics_and_strategy(results):
     plt.show()
 
     # Build and print strategy tables for each config
+    def build_strategy_table(q_values, use_ace=True):
+        table = []
+        for player_sum in range(20, 11, -1):
+            row = []
+            for dealer_card in range(2, 12):
+                state = (player_sum, dealer_card, use_ace)
+                hit_value = q_values.get((state, 0), float('-inf'))
+                stand_value = q_values.get((state, 1), float('-inf'))
+                best_action = 'H' if hit_value > stand_value else 'S'
+                row.append(best_action)
+            table.append(row)
+        return pd.DataFrame(table, index=range(20, 11, -1), columns=range(2, 12))
+
     for config, data in results.items():
         q_values = data['q_values']
         print(f"\nStrategy Table for {config} (Usable Ace = True):")

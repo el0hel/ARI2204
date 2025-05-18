@@ -6,7 +6,6 @@ import random
 
 random.seed(0)
 
-# Strategy table builder for Double Q-Learning
 def build_strategy_table(q_values, use_ace=True):
     table = []
     for player_sum in range(20, 11, -1):
@@ -86,9 +85,12 @@ def plot_episode_outcomes(results):
         plt.tight_layout()
         plt.show()
 
+# Double Q evaluation and visualization function
 def plot_eval_metrics_and_strategy(results):
     configs = list(results.keys())
     unique_counts = [len(results[c]['unique_pairs']) for c in configs]
+
+    # Unique pairs bar chart
     plt.figure(figsize=(10, 5))
     plt.bar(configs, unique_counts)
     plt.xticks(rotation=45, ha='right')
@@ -97,18 +99,24 @@ def plot_eval_metrics_and_strategy(results):
     plt.tight_layout()
     plt.show()
 
+    # Visit frequency: top 50 state-action pairs
     for config, data in results.items():
-        top_items = sorted(data['pair_counts'].items(), key=lambda x: x[1], reverse=True)[:10]
-        labels = [str(k) for k, _ in top_items]
+        top_items = sorted(data['pair_counts'].items(), key=lambda x: x[1], reverse=True)[:50]
+        labels = [
+            f"{'Hit' if k[1]==0 else 'Stand'} {k[0][0]},{k[0][1]},{'YES' if k[0][2] else 'NO'}"
+            for k, _ in top_items
+        ]
         values = [v for _, v in top_items]
-        plt.figure(figsize=(10, 5))
+
+        plt.figure(figsize=(16, 5))
         plt.bar(labels, values)
         plt.xticks(rotation=90)
-        plt.ylabel("Frequency")
-        plt.title(f"Top 10 Most Frequent (s,a) Selections - {config}")
+        plt.ylabel("Visit Count")
+        plt.title(f"Top 50 State-Action Visits: {config}")
         plt.tight_layout()
         plt.show()
 
+    # Dealer advantage comparison
     advantages = [results[c]['dealer_advantage'] for c in configs]
     best_index = advantages.index(min(advantages))
     bar_colors = ['orange' if i != best_index else 'green' for i in range(len(configs))]
@@ -121,6 +129,7 @@ def plot_eval_metrics_and_strategy(results):
     plt.tight_layout()
     plt.show()
 
+    # Strategy tables for each configuration
     for config, data in results.items():
         q_values = data['q_values']
         print(f"\nStrategy Table for {config} (Usable Ace = True):")
